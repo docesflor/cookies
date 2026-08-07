@@ -1881,10 +1881,34 @@ function gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container) {
 
     setTimeout(() => {
         html2canvas(el, { scale: 2.0, backgroundColor: '#ffffff' }).then(async canvas => {
-            const link = document.createElement('a');
-            link.download = 'comprovante-cookie-' + key.substr(-6) + '.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            const nomeArquivo = 'comprovante-cookie-' + key.substr(-6) + '.png';
+
+            await new Promise(resolve => {
+                canvas.toBlob(async blob => {
+                    if (!blob) { resolve(); return; }
+                    const arquivo = new File([blob], nomeArquivo, { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+                        try {
+                            await navigator.share({ files: [arquivo] });
+                            resolve();
+                            return;
+                        } catch (e) {
+                            // usuário cancelou o compartilhamento ou falhou — cai no fallback abaixo
+                        }
+                    }
+                    // Fallback (Android antigo / navegador sem suporte a share de arquivos):
+                    // baixa via link normal (funciona fora do iOS)
+                    const link = document.createElement('a');
+                    link.download = nomeArquivo;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    // Fallback extra pro iOS: abre a imagem numa aba pra salvar com toque longo
+                    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                        window.open(canvas.toDataURL('image/png'), '_blank');
+                    }
+                    resolve();
+                }, 'image/png');
+            });
 
             const telefone = (p.telefone || '').replace(/\D/g, '');
             const foneFormatado = telefone.startsWith('55') ? telefone : '55' + telefone;
