@@ -1870,14 +1870,18 @@ function imprimirComprovanteCookie(key) {
             overlayPreview.remove();
             container.style.cssText = 'position:fixed;top:-9999px;left:0;z-index:-1;background:white;';
             document.body.appendChild(container);
-            gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container);
+            // Abre a aba AGORA (ainda dentro do clique) pra não ser bloqueada pelo Safari depois
+            const isIOSComprovante = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const janelaPreAbertaCookie = isIOSComprovante ? window.open('', '_blank') : null;
+            gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container, janelaPreAbertaCookie);
         });
     });
 }
 
-function gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container) {
+function gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container, janelaPreAberta) {
     const el = document.getElementById('comprovante-conteudo-cookie');
     toast('⏳ Gerando comprovante...', 'aviso');
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     setTimeout(() => {
         html2canvas(el, { scale: 2.0, backgroundColor: '#ffffff' }).then(async canvas => {
@@ -1885,26 +1889,35 @@ function gerarEEnviarComprovanteCookie(p, key, dataBr, horario, container) {
 
             await new Promise(resolve => {
                 canvas.toBlob(async blob => {
-                    if (!blob) { resolve(); return; }
-                    const arquivo = new File([blob], nomeArquivo, { type: 'image/png' });
-                    if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
-                        try {
-                            await navigator.share({ files: [arquivo] });
-                            resolve();
-                            return;
-                        } catch (e) {
-                            // usuário cancelou o compartilhamento ou falhou — cai no fallback abaixo
+                    if (!blob) { if (janelaPreAberta) janelaPreAberta.close(); resolve(); return; }
+
+                    if (isIOS) {
+                        // iOS: tenta a folha de compartilhamento nativa primeiro
+                        const arquivo = new File([blob], nomeArquivo, { type: 'image/png' });
+                        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+                            try {
+                                await navigator.share({ files: [arquivo] });
+                                if (janelaPreAberta) janelaPreAberta.close();
+                                resolve();
+                                return;
+                            } catch (e) {
+                                // cancelou ou falhou — cai no fallback abaixo
+                            }
                         }
-                    }
-                    // Fallback (Android antigo / navegador sem suporte a share de arquivos):
-                    // baixa via link normal (funciona fora do iOS)
-                    const link = document.createElement('a');
-                    link.download = nomeArquivo;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    // Fallback extra pro iOS: abre a imagem numa aba pra salvar com toque longo
-                    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                        window.open(canvas.toDataURL('image/png'), '_blank');
+                        // Fallback: navega a aba já aberta no clique (não é bloqueada) pra imagem
+                        const blobUrl = URL.createObjectURL(blob);
+                        if (janelaPreAberta && !janelaPreAberta.closed) {
+                            janelaPreAberta.location.href = blobUrl;
+                        } else {
+                            window.open(blobUrl, '_blank');
+                        }
+                        toast('📷 Imagem aberta — toque e segure para salvar.', 'aviso');
+                    } else {
+                        // Desktop e Android: baixa direto, como sempre funcionou
+                        const link = document.createElement('a');
+                        link.download = nomeArquivo;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
                     }
                     resolve();
                 }, 'image/png');
