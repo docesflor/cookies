@@ -2051,11 +2051,6 @@ setInterval(verificarNotificacoesCookie, 10 * 60 * 1000);
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function () {
     window.scrollTo(0, 0);
-    const dataEntregaEl = document.getElementById('dataEntregaCookie');
-    if (dataEntregaEl) {
-        const hoje = new Date();
-        dataEntregaEl.min = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0') + '-' + String(hoje.getDate()).padStart(2, '0');
-    }
     ['loginEmail', 'loginSenha'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('keypress', function (e) { if (e.key === 'Enter') fazerLogin(); });
