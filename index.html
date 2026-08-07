@@ -449,8 +449,7 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
                 <input type="text" id="valorUnidadeItemCookie" placeholder="R$ 0,00" inputmode="decimal">
             </div>
         </div>
-        <button class="btn btn-laranja btn-bloco" onclick="adicionarItemCookie()">+ Adicionar Item</button>
-        <div id="itensListCookie"></div>
+        <button class="btn btn-laranja btn-bloco" id="btnAdicionarItemCookie" onclick="adicionarItemCookie()">+ Adicionar Item</button>        <div id="itensListCookie"></div>
     </div>
     <div class="form-card">
         <p class="form-card-titulo">💰 Valores</p>
@@ -640,6 +639,7 @@ const NODE_COOKIES = 'pedidosCookies';
 let modalCallback = null;
 let itensCookie = [];
 let pedidoCookieEmEdicao = null;
+let itemCookieEmEdicaoIndex = null;
 let mesAtualCookie = new Date().getMonth();
 let anoAtualCookie = new Date().getFullYear();
 let mesAtualFinCookie = new Date().getMonth();
@@ -820,6 +820,31 @@ function selecionarSaborCookie() {
     }
 }
 
+function editarItemCookie(index) {
+    const item = itensCookie[index];
+    if (!item) return;
+    itemCookieEmEdicaoIndex = index;
+
+    const select = document.getElementById('saborItemCookie');
+    const opcoesConhecidas = Array.from(select.options).map(o => o.value);
+    if (opcoesConhecidas.includes(item.descricao)) {
+        select.value = item.descricao;
+        document.getElementById('descricaoItemCookieWrapper').style.display = 'none';
+    } else {
+        select.value = 'outro';
+        document.getElementById('descricaoItemCookieWrapper').style.display = 'block';
+        document.getElementById('descricaoItemCookie').value = item.descricao;
+    }
+    document.getElementById('quantidadeItemCookie').value = item.quantidade;
+    document.getElementById('valorUnidadeItemCookie').value = 'R$ ' + (item.valorUnidade || 0).toFixed(2).replace('.', ',');
+
+    const btnAdd = document.getElementById('btnAdicionarItemCookie');
+    if (btnAdd) btnAdd.textContent = '💾 Salvar Alteração';
+
+    select.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('✏️ Editando item — ajuste os campos e salve.', 'aviso');
+}
+
 function adicionarItemCookie() {
     const select = document.getElementById('saborItemCookie');
     const descricao = select.value === 'outro'
@@ -830,7 +855,17 @@ function adicionarItemCookie() {
     if (!descricao) { toast('Selecione o sabor ou informe a descrição do item.', 'erro'); return; }
     if (!quantidade || quantidade < 1) { toast('Informe uma quantidade válida.', 'erro'); return; }
     if (!valorUnidade || valorUnidade <= 0) { toast('Informe o valor unitário do item.', 'erro'); return; }
-    itensCookie.push({ descricao, quantidade, valorUnidade });
+
+    if (itemCookieEmEdicaoIndex !== null) {
+        itensCookie[itemCookieEmEdicaoIndex] = { descricao, quantidade, valorUnidade };
+        itemCookieEmEdicaoIndex = null;
+        const btnAdd = document.getElementById('btnAdicionarItemCookie');
+        if (btnAdd) btnAdd.textContent = '+ Adicionar Item';
+        toast('✅ Item atualizado!');
+    } else {
+        itensCookie.push({ descricao, quantidade, valorUnidade });
+    }
+
     select.value = '';
     document.getElementById('descricaoItemCookieWrapper').style.display = 'none';
     document.getElementById('descricaoItemCookie').value = '';
@@ -841,6 +876,13 @@ function adicionarItemCookie() {
 }
 
 function removerItemCookie(index) {
+    if (itemCookieEmEdicaoIndex === index) {
+        itemCookieEmEdicaoIndex = null;
+        const btnAdd = document.getElementById('btnAdicionarItemCookie');
+        if (btnAdd) btnAdd.textContent = '+ Adicionar Item';
+    } else if (itemCookieEmEdicaoIndex !== null && index < itemCookieEmEdicaoIndex) {
+        itemCookieEmEdicaoIndex--;
+    }
     itensCookie.splice(index, 1);
     renderizarItensCookie();
     recalcularTotalCookie();
@@ -863,7 +905,10 @@ function renderizarItensCookie() {
             <td style="text-align:center;">${item.quantidade}</td>
             <td style="text-align:right;">R$ ${valorUn.toFixed(2).replace('.', ',')}</td>
             <td style="text-align:right;">R$ ${subtotal.toFixed(2).replace('.', ',')}</td>
-            <td style="text-align:center;"><button type="button" onclick="removerItemCookie(${i})" style="background:none;border:none;color:var(--red);font-weight:700;cursor:pointer;font-size:1.1em;">✕</button></td>
+            <td style="text-align:center;white-space:nowrap;">
+                <button type="button" onclick="editarItemCookie(${i})" style="background:none;border:none;color:var(--brown-warm);font-weight:700;cursor:pointer;font-size:1.05em;margin-right:8px;" title="Editar item">✏️</button>
+                <button type="button" onclick="removerItemCookie(${i})" style="background:none;border:none;color:var(--red);font-weight:700;cursor:pointer;font-size:1.1em;" title="Remover item">✕</button>
+            </td>
         </tr>`;
     });
     lista.innerHTML = `<table class="pedido-itens-tabela">
@@ -885,6 +930,9 @@ function limparFormularioCookie() {
     toggleEnderecoCookie();
     itensCookie = [];
     pedidoCookieEmEdicao = null;
+    itemCookieEmEdicaoIndex = null;
+    const btnAddReset = document.getElementById('btnAdicionarItemCookie');
+    if (btnAddReset) btnAddReset.textContent = '+ Adicionar Item';
     renderizarItensCookie();
 }
 
