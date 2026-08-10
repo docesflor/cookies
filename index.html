@@ -35,15 +35,21 @@
     <script src="https://docesflor.github.io/shared/utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════
    RESET / BASE (:root de cores vem de shared/theme.css)
 ═══════════════════════════════════════════ */
+html {
+    overflow-y: auto;
+}
 html, body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    height: auto;
+    min-height: 100%;
 }
 body { padding-top: 0; }
 
@@ -203,6 +209,29 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
 .pedido-itens-lista { background: var(--white); border-radius: 10px; margin: 8px 0; border: 1px solid var(--cream-dark); overflow: hidden; }
 .pedido-botoes { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
 .pedido-botoes .btn { flex: 1; min-width: 100px; font-size: 0.78em; padding: 8px 10px; text-align: center; }
+.botoes-principais { display: flex; gap: 6px; width: 100%; align-items: stretch; }
+.btn-mais {
+    flex: 0 0 40px; width: 40px; min-width: 40px; height: auto;
+    border: 1px solid var(--cream-dark); border-radius: 50px;
+    background: var(--cream); color: var(--brown-warm); font-size: 1.2em; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+}
+.btn-mais:hover { background: var(--amber); color: white; border-color: var(--amber); }
+.menu-mais {
+    position: fixed; background: var(--white);
+    border: 1px solid var(--cream-dark); border-radius: 14px; box-shadow: 0 8px 24px var(--shadow-strong);
+    z-index: 5000; min-width: 180px; overflow: hidden;
+}
+.menu-mais button {
+    display: block; width: 100%; text-align: left; padding: 11px 16px; border: none; background: none;
+    font-family: 'DM Sans', sans-serif; font-size: 0.85em; font-weight: 600; color: var(--brown-dark);
+    cursor: pointer; transition: background 0.15s;
+}
+.menu-mais button:hover { background: var(--cream); }
+.menu-mais hr { border: none; border-top: 1px solid var(--cream-dark); margin: 4px 0; }
+.menu-mais-excluir { color: var(--red) !important; }
 .swipe-wrapper.urgente-hoje { border-left: 4px solid var(--red); border-radius: 20px; box-shadow: -2px 0 0 var(--red), 0 4px 18px var(--shadow); }
 .swipe-wrapper.urgente-amanha { border-left: 4px solid #F59E0B; border-radius: 20px; box-shadow: -2px 0 0 #F59E0B, 0 4px 18px var(--shadow); }
 .swipe-wrapper.urgente-atrasado { border-left: 4px solid var(--red); border-radius: 20px; box-shadow: -2px 0 0 var(--red), 0 4px 18px var(--shadow); }
@@ -341,6 +370,23 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
 .trilha-linha { flex: 1; height: 2px; background: var(--cream-dark); margin: 0 -2px; margin-bottom: 16px; }
 .trilha-linha.feita { background: var(--amber); }
 @media (prefers-reduced-motion: reduce) { .trilha-etapa.atual .trilha-pegada { animation: none; } }
+
+#avisoOffline {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--red);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.85em;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    z-index: 9999;
+}
 </style>
 </head>
 <body>
@@ -1032,6 +1078,70 @@ function carregarAndamentoCookie() {
     });
 }
 
+function toggleMenuMais(id, ev) {
+    if (ev) ev.stopPropagation();
+    const menu = document.getElementById(id);
+    if (!menu) return;
+    const jaAberto = menu.style.display === 'block';
+    document.querySelectorAll('.menu-mais').forEach(m => m.style.display = 'none');
+    if (jaAberto) { menu.style.display = 'none'; return; }
+
+    const btn = ev.target.closest('.btn-mais');
+    if (btn && menu.parentElement !== document.body) {
+        // Move o menu para o body só uma vez, guardando de onde veio
+        menu._origParent = menu.parentElement;
+        menu._origNext = menu.nextSibling;
+        document.body.appendChild(menu);
+    }
+
+    if (btn) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.display = 'block'; // precisa estar visível pra medir a altura real
+        const alturaMenu = menu.offsetHeight || 140;
+        const larguraMenu = menu.offsetWidth || 180;
+        const espacoAbaixo = window.innerHeight - rect.bottom;
+        let left = rect.right - larguraMenu;
+        if (left < 8) left = 8;
+        menu.style.position = 'fixed';
+        menu.style.left = left + 'px';
+        menu.style.right = 'auto';
+        if (espacoAbaixo < alturaMenu + 12) {
+            menu.style.top = 'auto';
+            menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        } else {
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.bottom = 'auto';
+        }
+    }
+    menu.style.display = 'block';
+}
+
+function fecharMenuMais(id) {
+    const menu = document.getElementById(id);
+    if (!menu) return;
+    menu.style.display = 'none';
+    // Devolve o menu pro lugar original no card, pra não acumular nós soltos no body
+    if (menu._origParent) {
+        if (menu._origNext) menu._origParent.insertBefore(menu, menu._origNext);
+        else menu._origParent.appendChild(menu);
+    }
+}
+
+function fecharMenuMais(id) {
+    const menu = document.getElementById(id);
+    if (menu) menu.style.display = 'none';
+}
+
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.menu-mais') && !e.target.closest('.btn-mais')) {
+        document.querySelectorAll('.menu-mais').forEach(m => fecharMenuMais(m.id));
+    }
+});
+
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('.menu-mais').forEach(m => fecharMenuMais(m.id));
+}, true);
+    
 function criarCardCookie(pedido, key, finalizado) {
     const wrapper = document.createElement('div');
     wrapper.className = 'swipe-wrapper';
@@ -1151,13 +1261,21 @@ function criarCardCookie(pedido, key, finalizado) {
 
     const botoesDiv = document.createElement('div');
     botoesDiv.className = 'pedido-botoes';
+    botoesDiv.style.position = 'relative';
     botoesDiv.innerHTML = finalizado
         ? `<button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
            <button class="btn btn-vermelho" onclick="excluirPedidoCookie('${key}')">🗑️ Excluir</button>`
-        : `<button class="btn btn-finalizar-card" onclick="finalizarPedidoCookie('${key}')">✓ Finalizar</button>
-           <button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
-           <button class="btn btn-cinza" onclick="editarPedidoCookie('${key}')">✏️ Editar</button>
-           <button class="btn btn-vermelho" onclick="excluirPedidoCookie('${key}')">🗑️ Excluir</button>`;
+        : `<div class="botoes-principais">
+               <button class="btn btn-finalizar-card" onclick="finalizarPedidoCookie('${key}')">✓ Finalizar</button>
+               <button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
+               <button class="btn-mais" onclick="toggleMenuMais('menuMaisCookie-${key}', event)" aria-label="Mais opções">⋯</button>
+           </div>
+           <div class="menu-mais" id="menuMaisCookie-${key}" style="display:none;">
+               <button onclick="gerarCobrancaPixCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">💸 Pix</button>
+               <button onclick="editarPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">✏️ Editar</button>
+               <hr>
+               <button class="menu-mais-excluir" onclick="excluirPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">🗑️ Excluir</button>
+           </div>`;
 
     card.appendChild(header);
     card.appendChild(resumo);
@@ -1786,6 +1904,106 @@ function renderSaboresRankingCookie(saboresContagem) {
             </div>
         </div>`;
     }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   PIX — QR Code + copia-e-cola
+═══════════════════════════════════════════ */
+function removerAcentosCookie(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
+function crc16Cookie(str) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < str.length; i++) {
+        crc ^= str.charCodeAt(i) << 8;
+        for (let j = 0; j < 8; j++) {
+            crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+            crc &= 0xFFFF;
+        }
+    }
+    return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function gerarPayloadPixCookie(chave, nomeRecebedor, cidade, valor, txId) {
+    function tlv(id, value) {
+        const len = String(value.length).padStart(2, '0');
+        return id + len + value;
+    }
+    const valorFormatado = valor.toFixed(2);
+    const merchantAccount = tlv('00', 'BR.GOV.BCB.PIX') + tlv('01', chave);
+    const payload =
+        tlv('00', '01') +
+        tlv('26', merchantAccount) +
+        tlv('52', '0000') +
+        tlv('53', '986') +
+        tlv('54', valorFormatado) +
+        tlv('58', 'BR') +
+        tlv('59', nomeRecebedor.substring(0, 25)) +
+        tlv('60', cidade.substring(0, 15)) +
+        tlv('62', tlv('05', txId.substring(0, 25)));
+    const semCRC = payload + '6304';
+    const crc = crc16Cookie(semCRC);
+    return semCRC + crc;
+}
+
+function gerarCobrancaPixCookie(key) {
+    database.ref(NODE_COOKIES + '/' + key).once('value', snapshot => {
+        const p = snapshot.val();
+        if (!p) { toast('Pedido não encontrado.', 'erro'); return; }
+
+        const vTotal = typeof p.valorTotal === 'number' ? p.valorTotal : 0;
+
+        // 🔑 Dados fixos da chave Pix
+        const CHAVE_PIX = 'felipe.p.n@hotmail.com';
+        const NOME_RECEBEDOR = removerAcentosCookie('FELIPE P N');
+        const CIDADE = removerAcentosCookie('JARAGUA DO SUL');
+
+        const payload = gerarPayloadPixCookie(CHAVE_PIX, NOME_RECEBEDOR, CIDADE, vTotal, 'CK' + key.substr(-8));
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'modalPixCookie';
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width:340px;">
+                <p style="font-family:'Fredoka',sans-serif;font-size:1.2rem;font-weight:700;color:var(--brown-dark);margin-bottom:6px;">💸 Cobrança Pix</p>
+                <p style="font-size:0.85em;color:var(--brown-warm);margin-bottom:14px;">${escaparHTML(p.nome || '')} — R$ ${vTotal.toFixed(2).replace('.', ',')}</p>
+                <div id="qrcode-pix-cookie" style="display:flex;justify-content:center;margin-bottom:14px;"></div>
+                <textarea readonly style="font-size:0.7em;height:70px;" id="pix-copia-cola-cookie">${payload}</textarea>
+                <div class="modal-botoes">
+                    <button class="btn btn-cinza" onclick="document.getElementById('modalPixCookie').remove()">Fechar</button>
+                    <button class="btn btn-verde" onclick="copiarPixCookie()">Copiar Código</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        if (typeof QRCode === 'undefined') {
+            toast('⚠️ QR Code indisponível no momento. Use o código copia-e-cola.', 'aviso');
+        } else {
+            const qrDiv = document.getElementById('qrcode-pix-cookie');
+            qrDiv.innerHTML = '';
+            new QRCode(qrDiv, {
+                text: payload,
+                width: 220,
+                height: 220,
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+    });
+}
+
+function copiarPixCookie() {
+    const texto = document.getElementById('pix-copia-cola-cookie').value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(() => toast('📋 Código Pix copiado!'));
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); toast('📋 Código Pix copiado!'); } catch (e) { toast('Erro ao copiar.', 'erro'); }
+        document.body.removeChild(ta);
+    }
 }
 
 /* ═══════════════════════════════════════════
