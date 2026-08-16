@@ -189,7 +189,7 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
 
 /* ── ITENS DO PEDIDO ── */
 .pedido-itens-tabela-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.pedido-itens-tabela { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 0.82em; margin-top: 12px; }
+.pedido-itens-tabela { width: 100%; border-collapse: collapse; font-size: 0.82em; margin-top: 12px; }
 .pedido-itens-tabela th { background: var(--surface-brand); color: var(--amber-light); padding: 7px 8px; text-align: left; font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-family: 'DM Sans', sans-serif; }
 .pedido-itens-tabela td { padding: 7px 8px; border-bottom: 1px solid var(--cream-dark); color: var(--brown-dark); font-family: 'DM Sans', sans-serif; }
 .pedido-itens-tabela tr:last-child td { border-bottom: none; }
@@ -203,6 +203,7 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
 .pedido-status { padding: 4px 14px; border-radius: 50px; font-size: 0.75em; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap; }
 .status-andamento { background: #FEF3C7; color: #92400E; }
 .status-entregue  { background: #D1FAE5; color: #065F46; }
+.status-apagar    { background: #FEE2E2; color: #B91C1C; }
 .pedido-info { font-size: 0.86em; margin: 5px 0; color: var(--brown-warm); }
 .pedido-resumo { background: var(--cream); padding: 12px 14px; border-radius: 12px; margin: 10px 0; border-left: 3px solid var(--amber); }
 .pedido-detalhes { background: var(--cream); padding: 12px 14px; border-radius: 12px; margin: 10px 0; border-left: 3px solid var(--brown-dark); }
@@ -458,7 +459,7 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
         <input type="password" id="loginSenha" placeholder="Senha">
         <p id="loginErro"></p>
         <button id="btnLogin" class="btn-login" onclick="fazerLogin()">Entrar</button>
-        <p class="login-esqueci">Esqueceu a senha? <a href="#" onclick="recuperarSenha()">Redefinir</a></p>
+        <p class="login-esqueci">Esqueceu a senha? <a href="#" onclick="recuperarSenha();return false;">Redefinir</a></p>
     </div>
 </div>
 
@@ -611,6 +612,10 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
         <div class="ornament-line"><span class="ornament-icon">🐾</span></div>
         <span class="secao-sub">Histórico de entregas realizadas</span>
     </h2>
+    <div class="custos-tabs" id="finalizadosPagamentoTabsCookie">
+        <button class="custos-tab active" onclick="trocarAbaFinalizadosCookie('entregue', this)">✅ Entregues</button>
+        <button class="custos-tab" onclick="trocarAbaFinalizadosCookie('apagar', this)">🔴 A pagar</button>
+    </div>
     <div style="margin-bottom:14px;">
         <button class="btn btn-marrom btn-bloco" onclick="toggleCalendarioFinalizadosCookie()">📅 Calendário</button>
     </div>
@@ -1604,7 +1609,8 @@ function criarCardCookie(pedido, key, finalizado) {
         else badgeTempo = `<span style="background:var(--cream-dark);color:var(--brown-warm);border-radius:50px;padding:2px 10px;font-size:0.7em;font-weight:600;margin-left:8px;">em ${diff} dias</span>`;
     }
 
-    const statusClass = finalizado ? 'status-entregue' : 'status-andamento';
+    const pago = (pedido.statusPagamento || 'A pagar') === 'Pago';
+    const statusClass = finalizado ? (pago ? 'status-entregue' : 'status-apagar') : 'status-andamento';
     const statusTexto = finalizado ? ('Finalizado · ' + (pedido.statusPagamento || 'A pagar')) : (pedido.statusPagamento || 'A pagar');
     const valorFormatado = typeof pedido.valorTotal === 'number' ? 'R$ ' + pedido.valorTotal.toFixed(2).replace('.', ',') : 'R$ 0,00';
     const totalItens = (pedido.itens || []).reduce((s, i) => s + (parseInt(i.quantidade) || 0), 0);
@@ -1704,19 +1710,27 @@ function criarCardCookie(pedido, key, finalizado) {
     botoesDiv.className = 'pedido-botoes';
     botoesDiv.style.position = 'relative';
     botoesDiv.innerHTML = finalizado
-        ? `<button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
-           <button class="btn btn-vermelho" onclick="excluirPedidoCookie('${key}')">🗑️ Excluir</button>`
-        : `<div class="botoes-principais">
-               <button class="btn btn-finalizar-card" onclick="finalizarPedidoCookie('${key}')">✓ Finalizar</button>
-               <button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
-               <button class="btn-mais" onclick="toggleMenuMais('menuMaisCookie-${key}', event)" aria-label="Mais opções">⋯</button>
-           </div>
-           <div class="menu-mais" id="menuMaisCookie-${key}" style="display:none;">
-               <button onclick="gerarCobrancaPixCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">💸 Pix</button>
-               <button onclick="editarPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">✏️ Editar</button>
-               <hr>
-               <button class="menu-mais-excluir" onclick="excluirPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">🗑️ Excluir</button>
-           </div>`;
+    ? `<div class="botoes-principais">
+           <button class="btn btn-finalizar-card" onclick="alternarPagamentoCookie('${key}', ${pago})">${pago ? '↩️ Marcar A pagar' : '💰 Marcar como Pago'}</button>
+           <button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
+           <button class="btn-mais" onclick="toggleMenuMais('menuMaisCookie-${key}', event)" aria-label="Mais opções">⋯</button>
+       </div>
+       <div class="menu-mais" id="menuMaisCookie-${key}" style="display:none;">
+           <button onclick="editarPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">✏️ Editar</button>
+           <hr>
+           <button class="menu-mais-excluir" onclick="excluirPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">🗑️ Excluir</button>
+       </div>`
+    : `<div class="botoes-principais">
+           <button class="btn btn-finalizar-card" onclick="finalizarPedidoCookie('${key}')">✓ Finalizar</button>
+           <button class="btn btn-cinza" onclick="imprimirComprovanteCookie('${key}')">🧾 Comprovante</button>
+           <button class="btn-mais" onclick="toggleMenuMais('menuMaisCookie-${key}', event)" aria-label="Mais opções">⋯</button>
+       </div>
+       <div class="menu-mais" id="menuMaisCookie-${key}" style="display:none;">
+           <button onclick="gerarCobrancaPixCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">💸 Pix</button>
+           <button onclick="editarPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">✏️ Editar</button>
+           <hr>
+           <button class="menu-mais-excluir" onclick="excluirPedidoCookie('${key}');fecharMenuMais('menuMaisCookie-${key}')">🗑️ Excluir</button>
+       </div>`;
 
     card.appendChild(header);
     card.appendChild(resumo);
@@ -1759,6 +1773,14 @@ function finalizarPedidoCookie(key) {
             carregarAndamentoCookie();
         }).catch(err => toast('Erro: ' + err.message, 'erro'));
     });
+}
+
+function alternarPagamentoCookie(key, estavaPago) {
+    const novoStatus = estavaPago ? 'A pagar' : 'Pago';
+    database.ref(NODE_COOKIES + '/' + key).update({ statusPagamento: novoStatus }).then(() => {
+        toast(novoStatus === 'Pago' ? '💰 Pedido marcado como pago!' : '🔴 Pedido marcado como a pagar.');
+        carregarFinalizadosCookie();
+    }).catch(err => toast('Erro: ' + err.message, 'erro'));
 }
 
 function excluirPedidoCookie(key) {
@@ -1981,6 +2003,17 @@ function filtrarPorDiaCookie(dataISO) {
 /* ═══════════════════════════════════════════
    FINALIZADOS
 ═══════════════════════════════════════════ */
+let filtroFinalizadosPagamentoCookie = 'entregue';
+function pedidoPagoCookie(p) { return p.statusPagamento === 'Pago' || p.statusPagamento === 'entregue'; }
+function pedidoBateFiltroPagamentoCookie(p) { return filtroFinalizadosPagamentoCookie === 'entregue' ? pedidoPagoCookie(p) : !pedidoPagoCookie(p); }
+function trocarAbaFinalizadosCookie(tipo, btn) {
+    filtroFinalizadosPagamentoCookie = tipo;
+    document.querySelectorAll('#finalizadosPagamentoTabsCookie .custos-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const w = document.getElementById('calendario-wrapper-finalizados-cookie');
+    if (w && w.style.display === 'block') { filtrarFinalizadosPorMesCookie(); }
+    else { carregarFinalizadosCookie(); }
+}
 function carregarFinalizadosCookie() {
     const lista = document.getElementById('lista-finalizados-cookie');
     lista.innerHTML = '<p style="color:var(--brown-warm);">Carregando...</p>';
@@ -1988,11 +2021,11 @@ function carregarFinalizadosCookie() {
         const pedidos = [];
         snapshot.forEach(child => {
             const p = child.val();
-            if (!pedidoFinalizadoCookie(p)) return;
+            if (!pedidoFinalizadoCookie(p) || !pedidoBateFiltroPagamentoCookie(p)) return;
             p.key = child.key; pedidos.push(p);
         });
         document.getElementById('tituloFinalizadosContagemCookie').textContent = `(${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''})`;
-        if (pedidos.length === 0) { lista.innerHTML = estadoVazioCookie('Nenhum pedido de cookies finalizado.'); return; }
+        if (pedidos.length === 0) { lista.innerHTML = estadoVazioCookie(filtroFinalizadosPagamentoCookie === 'entregue' ? 'Nenhum pedido entregue ainda.' : 'Nenhum pedido finalizado a pagar.'); return; }
         pedidos.sort((a, b) => {
             const toDate = d => { if (!d) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return new Date(d + 'T00:00:00'); const p = d.split('/'); return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]) : null; };
             const da = toDate(a.dataEntrega), db = toDate(b.dataEntrega);
@@ -2069,7 +2102,7 @@ function filtrarFinalizadosPorMesCookie() {
     database.ref(NODE_COOKIES).once('value', snapshot => {
         const pedidos = [];
         snapshot.forEach(child => {
-            const p = child.val(); if (!pedidoFinalizadoCookie(p) || !p.dataEntrega) return;
+            const p = child.val(); if (!pedidoFinalizadoCookie(p) || !p.dataEntrega || !pedidoBateFiltroPagamentoCookie(p)) return;
             let dataP;
             if (/^\d{2}\/\d{2}\/\d{4}$/.test(p.dataEntrega)) { const pts = p.dataEntrega.split('/'); dataP = new Date(pts[2], pts[1] - 1, pts[0]); }
             else if (/^\d{4}-\d{2}-\d{2}$/.test(p.dataEntrega)) { const pts = p.dataEntrega.split('-'); dataP = new Date(pts[0], pts[1] - 1, pts[2]); }
@@ -2093,7 +2126,7 @@ function filtrarPorDiaFinalizadosCookie(dataISO) {
     database.ref(NODE_COOKIES).once('value', snapshot => {
         const pedidosDia = [];
         snapshot.forEach(child => {
-            const p = child.val(); if (!pedidoFinalizadoCookie(p)) return;
+            const p = child.val(); if (!pedidoFinalizadoCookie(p) || !pedidoBateFiltroPagamentoCookie(p)) return;
             let dataPedido = p.dataEntrega || '';
             if (dataPedido.includes('/')) { const pts = dataPedido.split('/'); dataPedido = `${pts[2]}-${pts[1]}-${pts[0]}`; }
             if (dataPedido === dataISO) { p.key = child.key; pedidosDia.push(p); }
@@ -2756,13 +2789,18 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('beforeunload', function (e) { if (pedidoCookieEmEdicao) { e.preventDefault(); e.returnValue = ''; } });
 
     // Garante que o campo focado fique visível quando o teclado do celular abre
-    document.querySelectorAll('input, select, textarea').forEach(el => {
-        el.addEventListener('focus', function () {
-            setTimeout(() => {
-                this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
+    // (restrito ao formulário de Novo Pedido, e só em telas de celular — no PC não há
+    // teclado virtual cobrindo o campo, então o scroll automático só atrapalhava)
+    const ehTelaDeCelular = window.matchMedia('(max-width: 768px)').matches;
+    if (ehTelaDeCelular) {
+        document.querySelectorAll('#secao-criar input, #secao-criar select, #secao-criar textarea').forEach(el => {
+            el.addEventListener('focus', function () {
+                setTimeout(() => {
+                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            });
         });
-    });
+    }
 });
 
 document.addEventListener('click', function (e) {
