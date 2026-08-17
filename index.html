@@ -543,13 +543,13 @@ input[readonly] { background: var(--cream-dark); cursor: not-allowed; font-weigh
         <select id="saborItemCookie" onchange="selecionarSaborCookie()">
             <option value="">Selecione um sabor...</option>
             <option value="Cookie Classic" data-preco="10.00">Cookie Classic</option>
+            <option value="Cookie Kinder Bueno" data-preco="15.00">Cookie Kinder Bueno</option>
+            <option value="Cookie Nutella" data-preco="15.00">Cookie Nutella</option>
+            <option value="Cookie Red Velvet" data-preco="15.00">Cookie Red Velvet</option>
             <option value="Cookie Triplo" data-preco="10.00">Cookie Triplo</option>
-            <option value="Kinder Bueno" data-preco="15.00">Kinder Bueno</option>
-            <option value="Mini Cookiezilla com recheio Nutella" data-preco="20.00">Mini Cookiezilla com recheio Nutella</option>
             <option value="Mini Cookiezilla com recheio Kinder Bueno" data-preco="20.00">Mini Cookiezilla com recheio Kinder Bueno</option>
+            <option value="Mini Cookiezilla com recheio Nutella" data-preco="20.00">Mini Cookiezilla com recheio Nutella</option>
             <option value="Mini Cookiezilla sem recheio" data-preco="15.00">Mini Cookiezilla sem recheio</option>
-            <option value="Nutella" data-preco="15.00">Nutella</option>
-            <option value="Red Velvet" data-preco="15.00">Red Velvet</option>
             <option value="outro">Outro (digitar manualmente)</option>
         </select>
         <div id="descricaoItemCookieWrapper" style="display:none;">
@@ -4405,7 +4405,7 @@ async function calcularPrevisaoCompraCookie(dias, btn) {
 // ====================== RECEITAS ======================
 
 
-const SABORES_COOKIE = ['Cookie Classic','Cookie Triplo','Kinder Bueno','Mini Cookiezilla com recheio Nutella','Mini Cookiezilla com recheio Kinder Bueno','Mini Cookiezilla sem recheio','Nutella','Red Velvet'];
+const SABORES_COOKIE = ['Cookie Classic','Cookie Triplo','Cookie Kinder Bueno','Mini Cookiezilla com recheio Nutella','Mini Cookiezilla com recheio Kinder Bueno','Mini Cookiezilla sem recheio','Cookie Nutella','Cookie Red Velvet'];
 
 function popularSelectReceitaSaborCookie() {
     const sel = document.getElementById('receitaSaborCookie');
